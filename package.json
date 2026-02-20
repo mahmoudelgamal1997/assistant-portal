@@ -2,10 +2,14 @@
   "name": "assistant-portal",
   "version": "1.0.0",
   "description": "Assistant Web Portal for DrWaiting",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "vite preview --port $PORT --host 0.0.0.0"
   },
   "dependencies": {
     "react": "^18.2.0",
