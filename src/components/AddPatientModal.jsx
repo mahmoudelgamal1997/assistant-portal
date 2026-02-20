@@ -41,6 +41,7 @@ export default function AddPatientModal({ doctor, onAdd, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) { setError('يرجى إدخال اسم المريض'); return; }
+    if (!phone.trim()) { setError('يرجى إدخال رقم الهاتف'); return; }
     setSubmitting(true);
     setError('');
     try {
@@ -80,12 +81,13 @@ export default function AddPatientModal({ doctor, onAdd, onClose }) {
           </div>
 
           <div className="form-group">
-            <label>رقم الهاتف</label>
+            <label>رقم الهاتف *</label>
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="01xxxxxxxxx"
+              required
               disabled={submitting}
             />
           </div>

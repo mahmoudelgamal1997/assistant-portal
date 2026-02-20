@@ -89,11 +89,12 @@ export default function HomePage({ clinic, onChangeClinic }) {
       const list = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => {
-          // Sort by createdAt ms timestamp — last added appears last.
-          // Fall back to position/user_order_in_queue for older patients without createdAt.
-          const aKey = a.createdAt ?? (a.position ?? a.user_order_in_queue ?? 0) * 1e12;
-          const bKey = b.createdAt ?? (b.position ?? b.user_order_in_queue ?? 0) * 1e12;
-          return aKey - bKey;
+          // Primary sort: queue position number (always numeric — avoids string comparison issues)
+          const aPos = Number(a.position ?? a.user_order_in_queue ?? 0);
+          const bPos = Number(b.position ?? b.user_order_in_queue ?? 0);
+          if (aPos !== bPos) return aPos - bPos;
+          // Tiebreak: by createdAt ms timestamp (last added appears last)
+          return (a.createdAt ?? 0) - (b.createdAt ?? 0);
         });
 
       // Detect newly assigned bills by comparing with previous state
