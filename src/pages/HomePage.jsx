@@ -88,7 +88,13 @@ export default function HomePage({ clinic, onChangeClinic }) {
     const unsubscribe = onSnapshot(q, (snap) => {
       const list = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.position ?? a.user_order_in_queue ?? 0) - (b.position ?? b.user_order_in_queue ?? 0));
+        .sort((a, b) => {
+          // Sort by createdAt ms timestamp — last added appears last.
+          // Fall back to position/user_order_in_queue for older patients without createdAt.
+          const aKey = a.createdAt ?? (a.position ?? a.user_order_in_queue ?? 0) * 1e12;
+          const bKey = b.createdAt ?? (b.position ?? b.user_order_in_queue ?? 0) * 1e12;
+          return aKey - bKey;
+        });
 
       // Detect newly assigned bills by comparing with previous state
       list.forEach((patient) => {
@@ -206,8 +212,12 @@ export default function HomePage({ clinic, onChangeClinic }) {
   const handleAddPatient = async (patientData) => {
     const queueNumber = getNextQueueNumber();
     const now = new Date();
-    // Use 24-hour format to avoid AM/PM confusion across locales
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    // 12-hour format with clear AM/PM, locale-independent
+    const hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = String(hours % 12 || 12).padStart(2, '0');
+    const timeStr = `${displayHours}:${minutes} ${ampm}`;
 
     const patientDoc = {
       patient_name: patientData.name,
@@ -225,6 +235,7 @@ export default function HomePage({ clinic, onChangeClinic }) {
       visit_type: patientData.visitType,
       visit_speed: patientData.visitSpeed,
       referral_source: patientData.referralSource ?? 'عام',
+      createdAt: now.getTime(),
       fcmToken: '',
       consultationPayment: {
         amount: patientData.fee ?? 0,
