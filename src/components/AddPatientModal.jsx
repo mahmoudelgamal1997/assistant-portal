@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 
+const DEFAULT_SOURCE = 'عام';
 const VISIT_SPEEDS = ['عادي', 'سريع'];
 
 const VISIT_TYPE_CONFIG = [
@@ -13,6 +14,7 @@ export default function AddPatientModal({ doctor, onAdd, onClose }) {
   const [phone, setPhone] = useState('');
   const [visitType, setVisitType] = useState('كشف');
   const [visitSpeed, setVisitSpeed] = useState('عادي');
+  const [referralSource, setReferralSource] = useState(DEFAULT_SOURCE);
   const [settings, setSettings] = useState(null);
   const [loadingFees, setLoadingFees] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +31,12 @@ export default function AddPatientModal({ doctor, onAdd, onClose }) {
   }, [doctor?.id]);
 
   const currentTypeConfig = VISIT_TYPE_CONFIG.find((v) => v.label === visitType);
-  const currentFee = settings ? (settings[currentTypeConfig.feeKey] ?? 0) : null;
+  const isUrgent = visitSpeed === 'سريع';
+  const currentFee = settings
+    ? isUrgent
+      ? (settings.urgentFee ?? 0)
+      : (settings[currentTypeConfig.feeKey] ?? 0)
+    : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,6 +50,7 @@ export default function AddPatientModal({ doctor, onAdd, onClose }) {
         visitType,
         visitSpeed,
         fee: currentFee ?? 0,
+        referralSource,
       });
     } catch (err) {
       setError('حدث خطأ أثناء الإضافة');
@@ -126,9 +134,25 @@ export default function AddPatientModal({ doctor, onAdd, onClose }) {
             </div>
           </div>
 
+          {/* Referral source */}
+          <div className="form-group">
+            <label>كيف سمعت عنا؟ <span style={{ color: '#999', fontSize: '0.85em' }}>(اختياري)</span></label>
+            <select
+              value={referralSource}
+              onChange={(e) => setReferralSource(e.target.value)}
+              disabled={submitting}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: '1rem', background: 'white' }}
+            >
+              <option value={DEFAULT_SOURCE}>عام</option>
+              {(settings?.referralSources ?? []).map((src) => (
+                <option key={src} value={src}>{src}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Fee display */}
           <div className="fee-display">
-            <span className="fee-label">رسوم {visitType}:</span>
+            <span className="fee-label">رسوم {isUrgent ? 'السريع' : visitType}:</span>
             {loadingFees ? (
               <span className="fee-loading">جارٍ التحميل...</span>
             ) : currentFee !== null ? (

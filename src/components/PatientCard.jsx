@@ -73,6 +73,13 @@ export default function PatientCard({
         </div>
       </div>
 
+      {/* Referral source label — shown only when not default */}
+      {patient.referral_source && patient.referral_source !== 'عام' && (
+        <div className="pc-referral-source">
+          📣 {patient.referral_source}
+        </div>
+      )}
+
       {/* Status + time */}
       <div className="pc-meta">
         <span className={`status-dot status-${patient.status}`}></span>

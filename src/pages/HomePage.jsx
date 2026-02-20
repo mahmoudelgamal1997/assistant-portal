@@ -223,6 +223,7 @@ export default function HomePage({ clinic, onChangeClinic }) {
       address: '',
       visit_type: patientData.visitType,
       visit_speed: patientData.visitSpeed,
+      referral_source: patientData.referralSource ?? 'عام',
       fcmToken: '',
       consultationPayment: {
         amount: patientData.fee ?? 0,
