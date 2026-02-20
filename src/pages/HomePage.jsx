@@ -206,7 +206,8 @@ export default function HomePage({ clinic, onChangeClinic }) {
   const handleAddPatient = async (patientData) => {
     const queueNumber = getNextQueueNumber();
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    // Use 24-hour format to avoid AM/PM confusion across locales
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     const patientDoc = {
       patient_name: patientData.name,
@@ -252,31 +253,56 @@ export default function HomePage({ clinic, onChangeClinic }) {
 
     // When FINISHED → add patient to doctor's patient list in MongoDB (same as Android app)
     if (newStatus === 'FINISHED') {
-      try {
-        await fetch('https://nowaiting-076a4d0af321.herokuapp.com/api/patients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            patient_name: patient.patient_name,
-            patient_phone: patient.patient_phone ?? '',
-            patient_id: patient.id,
-            doctor_id: patient.doctor_id,
-            doctor_name: patient.doctor_name ?? '',
-            clinic_id: clinic.id,
-            date: patient.date ?? dateStr,
-            time: patient.time ?? '',
-            status: 'FINISHED',
-            visit_type: patient.visit_type ?? 'كشف',
-            visit_speed: patient.visit_speed ?? 'عادي',
-            age: patient.age ?? '',
-            address: patient.address ?? '',
-            user_order_in_queue: patient.user_order_in_queue ?? 0,
-            assistant_id: assistantData?.id ?? '',
-          }),
-        });
-      } catch (err) {
-        console.error('Failed to save patient to API:', err);
-      }
+      const patientPayload = {
+        patient_name: patient.patient_name,
+        patient_phone: patient.patient_phone ?? '',
+        patient_id: patient.id,
+        doctor_id: patient.doctor_id,
+        doctor_name: patient.doctor_name ?? '',
+        clinic_id: clinic.id,
+        date: patient.date ?? dateStr,
+        time: patient.time ?? '',
+        status: 'FINISHED',
+        visit_type: patient.visit_type ?? 'كشف',
+        visit_speed: patient.visit_speed ?? 'عادي',
+        age: patient.age ?? '',
+        address: patient.address ?? '',
+        user_order_in_queue: patient.user_order_in_queue ?? 0,
+        assistant_id: assistantData?.id ?? '',
+      };
+
+      // Fire-and-forget: don't await so the UI never blocks on a slow/cold Heroku server.
+      // Retries once automatically if the first attempt fails.
+      const saveToMongoDB = async () => {
+        const doFetch = () =>
+          fetch('https://nowaiting-076a4d0af321.herokuapp.com/api/patients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patientPayload),
+          });
+
+        try {
+          const res = await doFetch();
+          if (!res.ok) {
+            // Non-2xx response — retry once
+            console.warn(`Patient API returned ${res.status}, retrying…`);
+            const retry = await doFetch();
+            if (!retry.ok) {
+              console.error('Patient API retry also failed:', retry.status);
+            }
+          }
+        } catch (err) {
+          // Network error — retry once
+          console.warn('Patient API network error, retrying…', err);
+          try {
+            await doFetch();
+          } catch (retryErr) {
+            console.error('Patient API retry failed:', retryErr);
+          }
+        }
+      };
+
+      saveToMongoDB(); // intentionally not awaited
     }
 
     // Auto-advance queue to next waiting patient
