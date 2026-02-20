@@ -94,6 +94,13 @@ function AppRoutes() {
   const { user, loading } = useAuth();
   const [selectedClinic, setSelectedClinic] = useState(null);
 
+  // Reset clinic selection on logout so the next login starts fresh
+  useEffect(() => {
+    if (!user) {
+      setSelectedClinic(null);
+    }
+  }, [user]);
+
   if (loading) {
     return (
       <div className="splash">
