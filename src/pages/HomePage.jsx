@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   collection, query, where, getDocs, doc, getDoc,
-  onSnapshot, addDoc, updateDoc, setDoc,
+  onSnapshot, addDoc, updateDoc, setDoc, orderBy, limit,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,10 +40,12 @@ export default function HomePage({ clinic, onChangeClinic }) {
   const [paymentBill, setPaymentBill] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'history'
+  const [doctorNotification, setDoctorNotification] = useState(null); // { message, doctorName }
 
   const dateStr = formatDate(selectedDate);
   const seenNotificationsRef = useRef(new Set());
   const prevPatientsRef = useRef({});
+  const doctorNotifTimerRef = useRef(null);
 
   // Load doctors for this clinic
   useEffect(() => {
@@ -134,6 +136,50 @@ export default function HomePage({ clinic, onChangeClinic }) {
 
     return () => unsubscribe();
   }, [clinic.id, selectedDoctor?.id, dateStr]);
+
+  // Listen for "Notify Assistant" messages from doctor (type: custom)
+  useEffect(() => {
+    if (!assistantData?.id) return;
+
+    const seenIds = seenNotificationsRef.current;
+
+    const notifRef = collection(db, 'doctor_assistant_notifications');
+    const q = query(
+      notifRef,
+      where('assistant_id', '==', assistantData.id),
+      orderBy('createdAt', 'desc'),
+      limit(10)
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      snap.docChanges().forEach((change) => {
+        if (change.type !== 'added') return;
+        const data = change.doc.data();
+        const docId = change.doc.id;
+
+        // Only handle non-billing (billing is already handled via patient listener)
+        if (data.type === 'billing') return;
+        if (data.read === true) return;
+        if (seenIds.has(docId)) return;
+
+        seenIds.add(docId);
+        const msg = data.message || 'لديك إشعار جديد من الطبيب';
+        const doctorName = data.doctor_name || 'الطبيب';
+
+        setDoctorNotification({ message: msg, doctorName });
+        playDoctorNotificationSound();
+
+        // Auto-dismiss after 15 seconds
+        if (doctorNotifTimerRef.current) clearTimeout(doctorNotifTimerRef.current);
+        doctorNotifTimerRef.current = setTimeout(() => setDoctorNotification(null), 15000);
+      });
+    });
+
+    return () => {
+      unsubscribe();
+      if (doctorNotifTimerRef.current) clearTimeout(doctorNotifTimerRef.current);
+    };
+  }, [assistantData?.id]);
 
   // Bill notifications are detected directly from patient document changes (see patient listener above)
 
@@ -331,6 +377,30 @@ export default function HomePage({ clinic, onChangeClinic }) {
 
     setPaymentPatient(null);
     setPaymentBill(null);
+  };
+
+  const playDoctorNotificationSound = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const playBeep = (freq, start, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + duration);
+      };
+      playBeep(660, 0, 0.2);
+      playBeep(880, 0.25, 0.2);
+      playBeep(660, 0.5, 0.2);
+      playBeep(880, 0.75, 0.3);
+    } catch (e) {
+      // silent fail
+    }
   };
 
   const playNotificationSound = () => {
@@ -548,6 +618,18 @@ export default function HomePage({ clinic, onChangeClinic }) {
 
       {menuOpen && (
         <div className="overlay-transparent" onClick={() => setMenuOpen(false)} />
+      )}
+
+      {/* Doctor "Notify Assistant" Toast */}
+      {doctorNotification && (
+        <div className="doctor-notif-toast" onClick={() => setDoctorNotification(null)}>
+          <div className="doctor-notif-icon">🔔</div>
+          <div className="doctor-notif-body">
+            <div className="doctor-notif-title">رسالة من د. {doctorNotification.doctorName}</div>
+            <div className="doctor-notif-msg">{doctorNotification.message}</div>
+          </div>
+          <button className="doctor-notif-close" onClick={() => setDoctorNotification(null)}>✕</button>
+        </div>
       )}
     </div>
   );
