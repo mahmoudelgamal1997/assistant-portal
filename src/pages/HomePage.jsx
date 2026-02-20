@@ -9,6 +9,7 @@ import PatientCard from '../components/PatientCard';
 import AddPatientModal from '../components/AddPatientModal';
 import BillNotificationModal from '../components/BillNotificationModal';
 import PaymentModal from '../components/PaymentModal';
+import UploadReportModal from '../components/UploadReportModal';
 import HistoryPage from './HistoryPage';
 
 function formatDate(date) {
@@ -38,6 +39,7 @@ export default function HomePage({ clinic, onChangeClinic }) {
   const [billNotification, setBillNotification] = useState(null);
   const [paymentPatient, setPaymentPatient] = useState(null);
   const [paymentBill, setPaymentBill] = useState(null);
+  const [uploadPatient, setUploadPatient] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'history'
   const [doctorNotification, setDoctorNotification] = useState(null); // { message, doctorName }
@@ -598,6 +600,7 @@ export default function HomePage({ clinic, onChangeClinic }) {
                     onStatusChange={handleStatusChange}
                     onPayConsultation={handlePayConsultation}
                     onPayBill={handlePayBill}
+                    onUploadReport={setUploadPatient}
                   />
                 ))}
               </div>
@@ -652,6 +655,15 @@ export default function HomePage({ clinic, onChangeClinic }) {
           billInfo={paymentBill}
           onConfirm={handleConfirmPayment}
           onClose={() => { setPaymentPatient(null); setPaymentBill(null); }}
+        />
+      )}
+
+      {uploadPatient && (
+        <UploadReportModal
+          patient={uploadPatient}
+          assistantId={assistantData?.id}
+          onClose={() => setUploadPatient(null)}
+          onSuccess={() => setUploadPatient(null)}
         />
       )}
 

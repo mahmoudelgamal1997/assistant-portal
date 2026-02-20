@@ -16,6 +16,7 @@ export default function PatientCard({
   onStatusChange,
   onPayConsultation,
   onPayBill,
+  onUploadReport,
 }) {
   const isCurrent = patient.user_order_in_queue === currentOrder;
   const isWaiting = patient.status === 'WAITING';
@@ -188,6 +189,17 @@ export default function PatientCard({
           </button>
         </div>
       )}
+
+      {/* Upload report button — always visible */}
+      <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          className="btn-upload-report"
+          onClick={() => onUploadReport && onUploadReport(patient)}
+          title="رفع تقرير أو فحص"
+        >
+          📎 رفع تقرير
+        </button>
+      </div>
     </div>
   );
 }
